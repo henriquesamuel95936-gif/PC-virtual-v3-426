@@ -1,0 +1,45 @@
+name: Virtual PC Online
+
+on:
+  workflow_dispatch:
+    inputs:
+      access_password:
+        description: "Senha do usuario"
+        required: true
+        type: string
+
+jobs:
+  pc:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configurar Senha
+        env:
+          PASS: ${{ inputs.access_password }}
+        run: |
+          echo "runner:$PASS" | sudo chpasswd
+
+      - name: Instalar Desktop Remoto
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xfce4 xfce4-goodies xrdp dbus-x11 curl unzip
+          echo "startxfce4" > ~/.xsession
+          sudo systemctl enable xrdp
+          sudo systemctl restart xrdp
+
+      - name: Instalar Ngrok
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip
+          unzip -o /tmp/ngrok.zip -d /tmp
+          /tmp/ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+          nohup /tmp/ngrok tcp 3389 > /tmp/ngrok.log 2>&1 &
+          sleep 10
+          cat /tmp/ngrok.log
+          sleep 10000
